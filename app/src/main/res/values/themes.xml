@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Theme.Frzterr" parent="Theme.MaterialComponents.DayNight.NoActionBar.Bridge">
+        <!-- Full edge-to-edge -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
 
-    <style name="Theme.Frzterr" parent="android:Theme.Material.Light.NoActionBar" />
+        <!-- Agar adaptive di berbagai HP -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+
+        <item name="selectableItemBackgroundBorderless">@null</item>
+        <item name="selectableItemBackground">@null</item>
+        <item name="colorControlHighlight">@android:color/transparent</item>
+
+        <item name="bottomNavigationStyle">@style/Frzterr.BottomNav</item>
+    </style>
+
+    <style name="Frzterr.BottomNav" parent="Widget.MaterialComponents.BottomNavigationView">
+        <item name="itemIconSize">@dimen/bottom_nav_icon_size</item>
+    </style>
+
 </resources>
