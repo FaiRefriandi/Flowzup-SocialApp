@@ -6,22 +6,22 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.frzlss.frzterr.ui.home.HomeFragment"
+        android:name="com.frzterr.app.ui.home.HomeFragment"
         android:label="Home" />
 
     <fragment
         android:id="@+id/exploreFragment"
-        android:name="com.frzlss.frzterr.ui.explore.ExploreFragment"
+        android:name="com.frzterr.app.ui.explore.ExploreFragment"
         android:label="Explore" />
 
     <fragment
         android:id="@+id/messageFragment"
-        android:name="com.frzlss.frzterr.ui.message.MessageFragment"
+        android:name="com.frzterr.app.ui.message.MessageFragment"
         android:label="Message" />
 
     <fragment
         android:id="@+id/profileFragment"
-        android:name="com.frzlss.frzterr.ui.profile.ProfileFragment"
+        android:name="com.frzterr.app.ui.profile.ProfileFragment"
         android:label="Profile" />
 
 </navigation>

@@ -18,7 +18,26 @@
 
         <activity
             android:name=".ui.auth.AuthActivity"
+            android:theme="@style/Theme.Frzterr"
             android:exported="false" />
+
+        <!-- RESET PASSWORD ACTIVITY -->
+        <activity
+            android:name=".ui.auth.ResetPasswordActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Frzterr">
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="frzterr"
+                    android:host="reset-password" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".MainActivity"

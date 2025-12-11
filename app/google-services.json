@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "25471157266",
+    "project_id": "frzterr-480819",
+    "storage_bucket": "frzterr-480819.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:25471157266:android:5f3ab9a239358e962484cb",
+        "android_client_info": {
+          "package_name": "com.frzterr.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "25471157266-cj5i52sjjla72qkf1snnquumhkdnacv3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.frzterr.app",
+            "certificate_hash": "a331dff027118a4f58f02494a1dc677c4f95eae6"
+          }
+        },
+        {
+          "client_id": "25471157266-g9p37e12ldum46rc3ob9usi03a3f961e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrDkcxj09gTlIpNX_hkW5AMKgYPOEQIbw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "25471157266-g9p37e12ldum46rc3ob9usi03a3f961e.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

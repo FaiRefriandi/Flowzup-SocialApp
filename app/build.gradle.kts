@@ -1,14 +1,15 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.frzlss.frzterr"
+    namespace = "com.frzterr.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.frzlss.frzterr"
+        applicationId = "com.frzterr.app"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -84,4 +85,13 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.2.0")
+
+    implementation("com.google.android.gms:play-services-auth:21.0.1")
+
+    implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
+    implementation("com.google.firebase:firebase-analytics")
 }
