@@ -3,12 +3,16 @@ package com.frzterr.app
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
+import com.frzterr.app.data.local.ProfileLocalStore
 import com.frzterr.app.data.repository.auth.AuthRepository
+import com.frzterr.app.data.repository.user.AppUser
+import com.frzterr.app.ui.profile.ProfileViewModel
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class MainActivity : AppCompatActivity() {
@@ -23,6 +27,21 @@ class MainActivity : AppCompatActivity() {
             navigateToAuth()
             return
         }
+
+        // 🔥 LOAD PROFILE LOKAL DI SINI
+        val (name, avatar) = ProfileLocalStore.load(this)
+
+        if (name != null || avatar != null) {
+            val vm: ProfileViewModel by viewModels()
+            vm.cachedUser = AppUser(
+                id = "local",
+                fullName = name,
+                avatarUrl = avatar
+            )
+        }
+
+        // ⬇️ BARU SET CONTENT VIEW
+        setContentView(R.layout.fragment_home)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT

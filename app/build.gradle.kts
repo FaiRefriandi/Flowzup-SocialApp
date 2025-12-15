@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("com.google.gms.google-services")
+    id("kotlin-kapt")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -98,4 +100,18 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.squareup.moshi:moshi:1.15.0")
 
+    //bumptech sama glide
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    kapt("com.github.bumptech.glide:compiler:4.16.0")
+
+    //seialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    //buat laod pp
+    implementation("io.coil-kt:coil:2.5.0")
+    // IMAGE CROPPER
+    implementation("com.github.yalantis:ucrop:2.2.8")
+
+    //ripres halamin
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 }

@@ -5,13 +5,22 @@ import com.frzterr.app.data.remote.supabase.SupabaseManager
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class AppUser(
     val id: String,
-    val fullName: String?,
-    val email: String?,
-    val avatarUrl: String?,
-    val provider: String?
+
+    @SerialName("full_name")
+    val fullName: String? = null,
+
+    val email: String? = null,
+
+    @SerialName("avatar_url")
+    val avatarUrl: String? = null,
+
+    val provider: String? = null
 )
 
 class UserRepository {
@@ -63,16 +72,35 @@ class UserRepository {
                     "Provider = $provider"
         )
 
-        val payload = mapOf(
+        val payload = mutableMapOf(
             "id" to id,
             "full_name" to name,
             "email" to email,
-            "avatar_url" to avatarUrl,
             "provider" to provider
         )
 
-        postgrest["users"].upsert(payload)
+        if (avatarUrl != null) {
+            payload["avatar_url"] = avatarUrl
+        }
 
-        Log.e("SUPABASE_USER_DB", "Upsert complete")
+        postgrest["users"].upsert(payload)
     }
+
+    suspend fun updateAvatarUrl(userId: String, avatarUrl: String) {
+        val payload = mapOf(
+            "id" to userId,
+            "avatar_url" to avatarUrl
+        )
+
+        postgrest["users"].upsert(payload)
+    }
+
+    suspend fun getUserByIdForce(uid: String): AppUser? =
+        withContext(Dispatchers.IO) {
+            postgrest["users"]
+                .select {
+                    filter { eq("id", uid) }
+                }
+                .decodeSingleOrNull<AppUser>()
+        }
 }

@@ -180,4 +180,17 @@ class AuthRepository {
         Log.e("SUPABASE_AUTH", "Checking isLoggedIn = ${session != null}")
         return session != null
     }
+
+    // ============================================================
+    // UPDATE DISPLAY AVATAR
+    // ============================================================
+    suspend fun updateCustomAvatar(url: String) {
+        Log.e("SUPABASE_USER", "Updating custom avatar")
+
+        auth.updateUser {
+            data = buildJsonObject {
+                put("custom_avatar_url", url)
+            }
+        }
+    }
 }

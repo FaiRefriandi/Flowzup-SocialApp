@@ -217,14 +217,12 @@ class AuthActivity : AppCompatActivity() {
                 val fullName = supaUser.userMetadata?.jsonObject?.get("full_name")
                     ?.jsonPrimitive?.content
 
-                val avatarUrl = supaUser.userMetadata?.jsonObject?.get("avatar_url")
-                    ?.jsonPrimitive?.content
 
                 userRepository.createOrUpdateUser(
                     id = supaUser.id,
                     name = fullName,
                     email = supaUser.email,
-                    avatarUrl = avatarUrl,
+                    avatarUrl = null,
                     provider = "google"
                 )
 
