@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@android:color/transparent"> <!-- Match app background -->
+
+    <!-- CONTENT CONTAINER -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            
+            <!-- Avatar Skeleton (Circle) -->
+            <View
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_shimmer_circle" />
+                
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp">
+                
+                <!-- Username Skeleton (Rounded) -->
+                <View
+                    android:layout_width="100dp"
+                    android:layout_height="12dp"
+                    android:background="@drawable/bg_shimmer_rounded"
+                    android:layout_marginBottom="6dp"/>
+                    
+                <!-- Timestamp Skeleton (Rounded) -->
+                <View
+                    android:layout_width="60dp"
+                    android:layout_height="10dp"
+                    android:background="@drawable/bg_shimmer_rounded"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Content Skeleton (Rounded) -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:background="@drawable/bg_shimmer_rounded"
+            android:layout_marginTop="16dp"
+            android:layout_marginStart="52dp"/>
+            
+        <View
+            android:layout_width="200dp"
+            android:layout_height="12dp"
+            android:background="@drawable/bg_shimmer_rounded"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="52dp"/>
+            
+        <View
+            android:layout_width="280dp"
+            android:layout_height="12dp"
+            android:background="@drawable/bg_shimmer_rounded"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="52dp"/>
+            
+        <!-- Actions Skeleton (Rounded) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:layout_marginStart="52dp">
+            
+            <View
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@drawable/bg_shimmer_circle"
+                android:layout_marginEnd="32dp"/>
+                
+            <View
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@drawable/bg_shimmer_circle"
+                android:layout_marginEnd="32dp"/>
+                
+            <View
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@drawable/bg_shimmer_circle"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- DIVIDER (Match real post divider) -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#1A1A1A"/>
+
+</LinearLayout>

@@ -181,6 +181,13 @@ class AuthRepository {
         return session != null
     }
 
+    suspend fun loadSession(): Boolean {
+        Log.e("SUPABASE_AUTH", "Explicitly loading session from storage...")
+        val success = auth.loadFromStorage()
+        Log.e("SUPABASE_AUTH", "Load session result: $success, currentSession: ${auth.currentSessionOrNull()}")
+        return success
+    }
+
     // ============================================================
     // REFRESH SESSION
     // ============================================================

@@ -64,44 +64,37 @@ class HomeViewModel : ViewModel() {
     fun toggleLike(postId: String, currentlyLiked: Boolean) {
         viewModelScope.launch {
             try {
-                // Retry mechanism for getCurrentUser
-                var currentUser = authRepo.getCurrentUser()
-                var retries = 0
-                while (currentUser == null && retries < 3) {
-                    kotlinx.coroutines.delay(200)
-                    currentUser = authRepo.getCurrentUser()
-                    retries++
-                }
-                
-                if (currentUser == null) return@launch
+                val currentUser = authRepo.getCurrentUser() ?: return@launch
 
-                // ⚡ Optimistic update
+                // ⚡ INSTANT Optimistic update - NO DELAY
                 val optimisticPosts = _posts.value?.map { postWithUser ->
                     if (postWithUser.post.id == postId) {
-                        postWithUser.copy(isLiked = !currentlyLiked)
+                        val updatedPost = postWithUser.post.copy(
+                            likeCount = if (currentlyLiked) 
+                                (postWithUser.post.likeCount - 1).coerceAtLeast(0) 
+                            else 
+                                postWithUser.post.likeCount + 1
+                        )
+                        postWithUser.copy(
+                            post = updatedPost,
+                            isLiked = !currentlyLiked
+                        )
                     } else {
                         postWithUser
                     }
                 }
                 _posts.value = optimisticPosts ?: emptyList()
 
-                // Background database operation
-                val result = postRepo.toggleLike(postId, currentUser.id, currentlyLiked)
-                
-                if (result.isFailure) {
-                    // Revert on failure
-                    _error.value = "Gagal menyukai post"
-                    loadPosts(showLoading = false)
-                    return@launch
+                // Background sync - fire and forget
+                launch {
+                    val result = postRepo.toggleLike(postId, currentUser.id, currentlyLiked)
+                    if (result.isFailure) {
+                        // Revert on failure
+                        loadPosts(showLoading = false)
+                    }
                 }
 
-                // Quick refresh with real-time counts
-                kotlinx.coroutines.delay(200)
-                val refreshedPosts = postRepo.getAllPosts(currentUser.id)
-                _posts.value = refreshedPosts
-
             } catch (e: Exception) {
-                _error.value = "Gagal menyukai post"
                 loadPosts(showLoading = false)
             }
         }
@@ -114,46 +107,95 @@ class HomeViewModel : ViewModel() {
     fun toggleRepost(postId: String, currentlyReposted: Boolean) {
         viewModelScope.launch {
             try {
-                // Retry mechanism for getCurrentUser
-                var currentUser = authRepo.getCurrentUser()
-                var retries = 0
-                while (currentUser == null && retries < 3) {
-                    kotlinx.coroutines.delay(200)
-                    currentUser = authRepo.getCurrentUser()
-                    retries++
-                }
-                
-                if (currentUser == null) return@launch
+                val currentUser = authRepo.getCurrentUser() ?: return@launch
 
-                // ⚡ Optimistic update
+                // ⚡ INSTANT Optimistic update - NO DELAY
                 val optimisticPosts = _posts.value?.map { postWithUser ->
                     if (postWithUser.post.id == postId) {
-                        postWithUser.copy(isReposted = !currentlyReposted)
+                        val updatedPost = postWithUser.post.copy(
+                            repostCount = if (currentlyReposted) 
+                                (postWithUser.post.repostCount - 1).coerceAtLeast(0) 
+                            else 
+                                postWithUser.post.repostCount + 1
+                        )
+                        postWithUser.copy(
+                            post = updatedPost,
+                            isReposted = !currentlyReposted
+                        )
                     } else {
                         postWithUser
                     }
                 }
                 _posts.value = optimisticPosts ?: emptyList()
 
-                // Background database operation
-                val result = postRepo.toggleRepost(postId, currentUser.id, currentlyReposted)
-                
-                if (result.isFailure) {
-                    // Revert on failure
-                    _error.value = "Gagal repost"
-                    loadPosts(showLoading = false)
-                    return@launch
+                // Background sync - fire and forget
+                launch {
+                    val result = postRepo.toggleRepost(postId, currentUser.id, currentlyReposted)
+                    if (result.isFailure) {
+                        // Revert on failure
+                        loadPosts(showLoading = false)
+                    }
                 }
 
-                // Quick refresh with real-time counts
-                kotlinx.coroutines.delay(200)
-                val refreshedPosts = postRepo.getAllPosts(currentUser.id)
-                _posts.value = refreshedPosts
-
             } catch (e: Exception) {
-                _error.value = "Gagal repost"
                 loadPosts(showLoading = false)
             }
         }
+    }
+    fun deletePost(post: com.frzterr.app.data.model.Post) {
+        val oldList = _posts.value
+
+        // ⚡ INSTANT Optimistic update
+        _posts.value = oldList?.filter { it.post.id != post.id }
+
+        viewModelScope.launch {
+            try {
+                val currentUser = authRepo.getCurrentUser() ?: return@launch
+                val result = postRepo.deletePost(post.id, currentUser.id)
+
+                if (result.isFailure) {
+                    _error.value = "Gagal menghapus postingan"
+                    _posts.value = oldList // Revert
+                }
+            } catch (e: Exception) {
+                _error.value = "Gagal menghapus postingan"
+                _posts.value = oldList // Revert
+            }
+        }
+    }
+
+    fun editPost(post: com.frzterr.app.data.model.Post, newContent: String) {
+        val oldList = _posts.value
+
+        // ⚡ INSTANT Optimistic update
+        val updatedList = oldList?.map { postWithUser ->
+            if (postWithUser.post.id == post.id) {
+                postWithUser.copy(
+                    post = postWithUser.post.copy(content = newContent)
+                )
+            } else {
+                postWithUser
+            }
+        }
+        _posts.value = updatedList ?: emptyList()
+
+        viewModelScope.launch {
+            try {
+                val currentUser = authRepo.getCurrentUser() ?: return@launch
+                val result = postRepo.updatePost(post.id, currentUser.id, newContent)
+
+                if (result.isFailure) {
+                    _error.value = "Gagal mengupdate postingan"
+                    _posts.value = oldList // Revert
+                }
+            } catch (e: Exception) {
+                _error.value = "Gagal mengupdate postingan"
+                _posts.value = oldList // Revert
+            }
+        }
+    }
+    fun hidePost(postId: String) {
+        val oldList = _posts.value
+        _posts.value = oldList?.filter { it.post.id != postId }
     }
 }

@@ -15,37 +15,56 @@ import com.frzterr.app.data.repository.user.AppUser
 import com.frzterr.app.ui.profile.ProfileViewModel
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+
 class MainActivity : AppCompatActivity() {
 
     private val authRepository = AuthRepository()
+    private var isCheckingSession = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        if (!authRepository.isLoggedIn()) {
-            navigateToAuth()
-            return
-        }
+        // Keep splash screen until session check is done
+        splashScreen.setKeepOnScreenCondition { isCheckingSession }
 
-        // 🔥 LOAD PROFILE LOKAL DI SINI
-        val (name, avatar, username) = ProfileLocalStore.load(this)
+        lifecycleScope.launch {
+            // Check session asynchronously (suspends until loaded from disk)
+            val hasSession = authRepository.loadSession()
 
-        if (name != null || avatar != null) {
-            val vm: ProfileViewModel by viewModels()
-            vm.cachedUser = AppUser(
-                id = "local",
-                fullName = name,
-                email = null,
-                avatarUrl = avatar,
-                provider = null,
-                username = username ?: "",
-                usernameLower = username?.lowercase() ?: ""
-            )
+            if (!hasSession) {
+                navigateToAuth()
+                isCheckingSession = false
+                return@launch
+            }
+
+            // Session valid! Load profile data locally
+            // 🔥 LOAD PROFILE LOKAL DI SINI
+            val (name, avatar, username) = ProfileLocalStore.load(this@MainActivity)
+
+            if (name != null || avatar != null) {
+                val vm: ProfileViewModel by viewModels()
+                vm.cachedUser = AppUser(
+                    id = "local",
+                    fullName = name,
+                    email = null,
+                    avatarUrl = avatar,
+                    provider = null,
+                    username = username ?: "",
+                    usernameLower = username?.lowercase() ?: ""
+                )
+            }
+
+            // Release splash screen
+            isCheckingSession = false
         }
 
         // ⬇️ BARU SET CONTENT VIEW
-        setContentView(R.layout.fragment_home)
+        // Note: Content might appear before splash screen is dismissed if isCheckingSession becomes false slightly later,
+        // but 'setKeepOnScreenCondition' handles the visual.
+        setContentView(R.layout.activity_main)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
@@ -53,14 +72,45 @@ class MainActivity : AppCompatActivity() {
         window.setNavigationBarContrastEnforced(false)
         window.setStatusBarContrastEnforced(false)
 
-        setContentView(R.layout.activity_main)
-
         val navHostFragment =
             supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
         val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_nav)
-        bottomNav.setupWithNavController(navController)
+        // bottomNav.setupWithNavController(navController)
+        // 🔥 CUSTOM NAVIGATION SETUP TO DISABLE ANIMATIONS (FIX SHADOW GLITCH)
+        bottomNav.setOnItemSelectedListener { item ->
+            val builder = androidx.navigation.NavOptions.Builder()
+                .setLaunchSingleTop(true)
+                .setRestoreState(true)
+                .setEnterAnim(0)
+                .setExitAnim(0)
+                .setPopEnterAnim(0)
+                .setPopExitAnim(0)
+
+            // Pop up to the start destination of the graph to
+            // avoid building up a large stack of destinations
+            // on the back stack as users select items
+            builder.setPopUpTo(
+                navController.graph.startDestinationId,
+                inclusive = false,
+                saveState = true
+            )
+
+            val options = builder.build()
+
+            try {
+                navController.navigate(item.itemId, null, options)
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        // Keep BottomNav selected item in sync with NavController (e.g. on Back press)
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            bottomNav.menu.findItem(destination.id)?.isChecked = true
+        }
     }
 
     private fun navigateToAuth() {

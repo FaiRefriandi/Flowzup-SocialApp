@@ -92,7 +92,7 @@
             android:textAllCaps="false"
             android:layout_marginTop="20dp"
             android:textColor="#FFFFFF"
-            android:backgroundTint="#3B82F6"
+            android:backgroundTint="#2A2A2A"
             app:cornerRadius="50dp"
             android:minHeight="62dp"
             android:paddingVertical="18dp"/>

@@ -43,6 +43,18 @@
                     android:textSize="15sp"/>
             </LinearLayout>
 
+            <!-- SHIMMER LOADING -->
+            <com.facebook.shimmer.ShimmerFrameLayout
+                android:id="@+id/shimmerViewContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:shimmer_duration="800">
+
+                <include layout="@layout/shimmer_home_placeholder" />
+
+            </com.facebook.shimmer.ShimmerFrameLayout>
+
         </FrameLayout>
 
     </androidx.core.widget.NestedScrollView>

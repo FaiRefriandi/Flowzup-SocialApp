@@ -1,6 +1,5 @@
 package com.frzterr.app.ui.comments
 
-import android.app.Dialog
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -9,21 +8,25 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.frzterr.app.R
+import com.frzterr.app.data.model.CommentWithUser
 import com.frzterr.app.data.repository.auth.AuthRepository
 import com.frzterr.app.data.repository.post.PostRepository
+import com.frzterr.app.ui.common.BaseEdgeToEdgeBottomSheetDialogFragment
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class CommentsBottomSheet(
     private val postId: String,
+    private val postOwnerId: String,
     private val onCommentAdded: () -> Unit = {}
-) : BottomSheetDialogFragment() {
+) : BaseEdgeToEdgeBottomSheetDialogFragment() {
 
     private val postRepo = PostRepository()
     private val authRepo = AuthRepository()
@@ -31,44 +34,14 @@ class CommentsBottomSheet(
 
     private lateinit var rvComments: RecyclerView
     private lateinit var emptyState: View
-    private lateinit var progressBar: ProgressBar
+    private lateinit var shimmerViewContainer: com.facebook.shimmer.ShimmerFrameLayout
     private lateinit var etComment: EditText
     private lateinit var btnSend: ImageView
     private lateinit var btnClose: ImageView
-
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialog = super.onCreateDialog(savedInstanceState) as BottomSheetDialog
-        
-        // Set soft input mode to adjust for keyboard
-        dialog.window?.setSoftInputMode(
-            android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
-        )
-        
-        dialog.setOnShowListener { dialogInterface ->
-            val bottomSheetDialog = dialogInterface as BottomSheetDialog
-            val bottomSheet = bottomSheetDialog.findViewById<View>(
-                com.google.android.material.R.id.design_bottom_sheet
-            ) ?: return@setOnShowListener
-            
-            // Set transparent background untuk rounded corners
-            bottomSheet.setBackgroundResource(android.R.color.transparent)
-            
-            val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet)
-            
-            // Instagram-style: bottom menempel, berhenti di tengah, bisa expand
-            behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_COLLAPSED
-            behavior.isDraggable = true
-            behavior.isHideable = true
-            behavior.skipCollapsed = false
-            
-            // Expand to half screen by default
-            val displayMetrics = resources.displayMetrics
-            val screenHeight = displayMetrics.heightPixels
-            behavior.peekHeight = (screenHeight * 0.5).toInt()
-        }
-        
-        return dialog
-    }
+    
+    private var replyToCommentId: String? = null
+    private var allComments: List<CommentWithUser> = emptyList()
+    private val expandedCommentIds = mutableSetOf<String>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -80,39 +53,30 @@ class CommentsBottomSheet(
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
+        
         rvComments = view.findViewById(R.id.rvComments)
         emptyState = view.findViewById(R.id.emptyState)
-        progressBar = view.findViewById(R.id.progressBar)
+        shimmerViewContainer = view.findViewById(R.id.shimmerViewContainer)
         etComment = view.findViewById(R.id.etComment)
         btnSend = view.findViewById(R.id.btnSend)
         btnClose = view.findViewById(R.id.btnClose)
 
-        adapter = CommentAdapter()
-        rvComments.adapter = adapter
+        setupAdapter()
+        rvComments.adapter = adapter 
 
         loadComments()
 
         btnClose.setOnClickListener {
             dismiss()
         }
-
-        // Auto-expand when keyboard appears (when input is focused)
+        
+        // Ensure expanded when typing
         etComment.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                // Expand bottom sheet saat keyboard muncul
-                val dialog = dialog as? BottomSheetDialog
-                val bottomSheet = dialog?.findViewById<View>(
-                    com.google.android.material.R.id.design_bottom_sheet
-                )
-                bottomSheet?.let {
-                    val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(it)
-                    behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
-                }
+                (dialog as? BottomSheetDialog)?.behavior?.state = BottomSheetBehavior.STATE_EXPANDED
             }
         }
 
-        // Show/hide send button based on text input
         etComment.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -129,21 +93,72 @@ class CommentsBottomSheet(
         }
     }
 
+    private fun setupAdapter() {
+        lifecycleScope.launch {
+            val currentUser = authRepo.getCurrentUser()
+            adapter = CommentAdapter(
+                currentUserId = currentUser?.id,
+                postOwnerId = postOwnerId,
+                onLikeClick = { comment -> toggleLike(comment) },
+                onReplyClick = { comment -> replyComment(comment) },
+                onDeleteClick = { comment -> confirmDelete(comment) },
+                onReplyToggle = { commentId -> toggleReplyExpanded(commentId) }
+            )
+            rvComments.adapter = adapter
+        }
+    }
+    
+    private fun updateDisplayedComments() {
+        val mappedComments = allComments.map { commentWithUser ->
+            commentWithUser.copy(
+                isExpanded = expandedCommentIds.contains(commentWithUser.comment.id)
+            )
+        }
+        
+        val filteredList = mappedComments.filter { commentWithUser ->
+            val parentId = commentWithUser.comment.parentCommentId
+            if (parentId == null) {
+                true 
+            } else {
+                expandedCommentIds.contains(parentId)
+            }
+        }
+        
+        adapter.submitList(filteredList)
+        emptyState.visibility = if (allComments.isEmpty()) View.VISIBLE else View.GONE
+    }
+    
+    private fun toggleReplyExpanded(commentId: String) {
+        if (expandedCommentIds.contains(commentId)) {
+            expandedCommentIds.remove(commentId)
+        } else {
+            expandedCommentIds.add(commentId)
+        }
+        updateDisplayedComments()
+    }
+
     private fun loadComments() {
         lifecycleScope.launch {
             try {
-                progressBar.visibility = View.VISIBLE
-                emptyState.visibility = View.GONE
+                if (adapter.itemCount == 0 && allComments.isEmpty()) {
+                    shimmerViewContainer.visibility = View.VISIBLE
+                    shimmerViewContainer.startShimmer()
+                    rvComments.visibility = View.GONE
+                    emptyState.visibility = View.GONE
+                }
 
-                val comments = postRepo.getPostComments(postId)
+                val currentUser = authRepo.getCurrentUser()
+                allComments = postRepo.getPostComments(postId, currentUser?.id)
 
-                adapter.submitList(comments)
-                emptyState.visibility = if (comments.isEmpty()) View.VISIBLE else View.GONE
-
+                updateDisplayedComments()
+                
+                shimmerViewContainer.stopShimmer()
+                shimmerViewContainer.visibility = View.GONE
+                rvComments.visibility = View.VISIBLE
+                
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Gagal memuat komentar", Toast.LENGTH_SHORT).show()
-            } finally {
-                progressBar.visibility = View.GONE
+                shimmerViewContainer.stopShimmer()
+                shimmerViewContainer.visibility = View.GONE
             }
         }
     }
@@ -157,16 +172,20 @@ class CommentsBottomSheet(
                     return@launch
                 }
 
-                val result = postRepo.addComment(postId, currentUser.id, content)
+                val parentIdBeforeReset = replyToCommentId
+                val result = postRepo.addComment(postId, currentUser.id, content, replyToCommentId)
 
                 if (result.isSuccess) {
                     etComment.text.clear()
+                    replyToCommentId = null 
                     Toast.makeText(requireContext(), "Komentar ditambahkan", Toast.LENGTH_SHORT).show()
                     
-                    // Reload comments
+                    if (parentIdBeforeReset != null) {
+                        expandedCommentIds.add(parentIdBeforeReset)
+                    }
+
                     loadComments()
-                    
-                    // Shorter delay since counts are real-time
+
                     kotlinx.coroutines.delay(200)
                     onCommentAdded()
                 } else {
@@ -175,6 +194,126 @@ class CommentsBottomSheet(
 
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun toggleLike(commentWithUser: CommentWithUser) {
+        val index = allComments.indexOfFirst { it.comment.id == commentWithUser.comment.id }
+        
+        if (index != -1) {
+            val currentItem = allComments[index]
+            val wasLiked = currentItem.isLiked
+            val newLikeCount = if (wasLiked) {
+                (currentItem.comment.likeCount - 1).coerceAtLeast(0)
+            } else {
+                currentItem.comment.likeCount + 1
+            }
+            
+            val newItem = currentItem.copy(
+                isLiked = !wasLiked,
+                comment = currentItem.comment.copy(likeCount = newLikeCount)
+            )
+            
+            val mutableList = allComments.toMutableList()
+            mutableList[index] = newItem
+            allComments = mutableList.toList()
+            
+            updateDisplayedComments()
+
+            lifecycleScope.launch {
+                val currentUser = authRepo.getCurrentUser() ?: return@launch
+                
+                val result = if (wasLiked) {
+                    postRepo.unlikeComment(commentWithUser.comment.id, currentUser.id)
+                } else {
+                    postRepo.likeComment(commentWithUser.comment.id, currentUser.id)
+                }
+
+                if (result.isFailure) {
+                    val revertList = allComments.toMutableList()
+                    revertList[index] = currentItem
+                    allComments = revertList.toList()
+                    updateDisplayedComments()
+                    Toast.makeText(requireContext(), "Gagal update like", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun replyComment(commentWithUser: CommentWithUser) {
+        lifecycleScope.launch {
+            val currentUser = authRepo.getCurrentUser()
+            
+            replyToCommentId = commentWithUser.comment.parentCommentId ?: commentWithUser.comment.id
+            
+            if (currentUser != null && currentUser.id != commentWithUser.comment.userId) {
+                val username = commentWithUser.user.username
+                val mention = "@$username "
+                etComment.setText(mention)
+                etComment.setSelection(mention.length)
+            }
+            
+            etComment.requestFocus()
+            
+            val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(etComment, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }
+    }
+
+    private fun confirmDelete(commentWithUser: CommentWithUser) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Hapus Komentar")
+            .setMessage("Apakah Anda yakin ingin menghapus komentar ini?")
+            .setPositiveButton("Hapus") { _, _ ->
+                deleteComment(commentWithUser)
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun deleteComment(commentWithUser: CommentWithUser) {
+        lifecycleScope.launch {
+            val commentsToRemove = mutableSetOf<String>()
+            collectDescendants(commentWithUser.comment.id, commentsToRemove)
+            commentsToRemove.add(commentWithUser.comment.id) 
+
+            val oldList = allComments
+            val listAfterRemove = allComments.filter { !commentsToRemove.contains(it.comment.id) }
+            allComments = listAfterRemove
+            
+            updateDisplayedComments()
+
+            val currentUser = authRepo.getCurrentUser() ?: return@launch
+            
+            val result = postRepo.deleteComment(commentWithUser.comment.id, currentUser.id)
+
+            if (result.isFailure) {
+                allComments = oldList
+                updateDisplayedComments()
+                Toast.makeText(requireContext(), "Gagal menghapus komentar", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "Komentar dihapus", Toast.LENGTH_SHORT).show()
+                onCommentAdded() 
+                
+                commentsToRemove.remove(commentWithUser.comment.id) 
+                if (commentsToRemove.isNotEmpty()) {
+                    launch(Dispatchers.IO) {
+                        commentsToRemove.forEach { childId ->
+                            postRepo.deleteComment(childId, currentUser.id)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun collectDescendants(parentId: String, activeSet: MutableSet<String>) {
+        val children = allComments.filter { it.comment.parentCommentId == parentId }
+        children.forEach { child ->
+            if (!activeSet.contains(child.comment.id)) {
+                activeSet.add(child.comment.id)
+                collectDescendants(child.comment.id, activeSet)
             }
         }
     }

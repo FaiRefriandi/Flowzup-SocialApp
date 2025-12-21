@@ -49,7 +49,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#1A1A1A"/>
+        android:background="#2A2A2A"/>
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -91,19 +91,23 @@
                 android:layout_marginTop="4dp"/>
         </LinearLayout>
 
-        <!-- LOADING -->
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:visibility="gone"/>
+        <!-- SHIMMER LOADING -->
+        <com.facebook.shimmer.ShimmerFrameLayout
+            android:id="@+id/shimmerViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            app:shimmer_duration="800">
+
+            <include layout="@layout/shimmer_comments_placeholder" />
+
+        </com.facebook.shimmer.ShimmerFrameLayout>
     </FrameLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#1A1A1A"/>
+        android:background="#2A2A2A"/>
 
     <!-- INPUT AREA -->
     <LinearLayout
@@ -130,11 +134,11 @@
 
         <ImageView
             android:id="@+id/btnSend"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@android:drawable/ic_menu_send"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_comment_send"
             android:contentDescription="Kirim komentar"
-            app:tint="#0A7AFF"
+            app:tint="@color/white"
             android:layout_marginStart="8dp"
             android:visibility="gone"/>
     </LinearLayout>

@@ -26,4 +26,21 @@ data class Post(
 
     @SerialName("repost_count")
     val repostCount: Int = 0
-)
+) {
+    val imageUrls: List<String>
+        get() = try {
+            if (imageUrl.isNullOrBlank()) {
+                emptyList()
+            } else if (imageUrl.trim().startsWith("[")) {
+                // Robust parsing: Remove brackets and quotes, then split
+                imageUrl.replace(Regex("[\\[\\]\"]"), "") // Remove [ ] "
+                    .split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+            } else {
+                listOf(imageUrl)
+            }
+        } catch (e: Exception) {
+            if (imageUrl != null) listOf(imageUrl) else emptyList()
+        }
+}

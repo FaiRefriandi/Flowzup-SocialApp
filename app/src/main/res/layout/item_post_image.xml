@@ -1,0 +1,34 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:layout_marginEnd="8dp">
+
+    <!-- SHIMMER PLACEHOLDER -->
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/shimmerLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        app:shimmer_auto_start="true">
+
+        <!-- Dummy view mimicking portrait shape -->
+        <View
+            android:layout_width="192dp"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_shimmer_rounded" />
+    </com.facebook.shimmer.ShimmerFrameLayout>
+
+    <!-- ACTUAL IMAGE -->
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/imgPost"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:maxWidth="280dp"
+        android:adjustViewBounds="true"
+        android:scaleType="centerCrop"
+        app:strokeWidth="1dp"
+        app:strokeColor="#4DFFFFFF"
+        android:padding="1dp"
+        app:shapeAppearanceOverlay="@style/RoundedImageView" />
+
+</FrameLayout>

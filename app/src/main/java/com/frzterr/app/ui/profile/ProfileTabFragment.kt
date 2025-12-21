@@ -19,6 +19,7 @@ class ProfileTabFragment : androidx.fragment.app.Fragment() {
     private var recyclerView: RecyclerView? = null
     private var emptyState: LinearLayout? = null
     private var scrollView: androidx.core.widget.NestedScrollView? = null
+    private var shimmerViewContainer: com.facebook.shimmer.ShimmerFrameLayout? = null
 
     companion object {
         private const val ARG_TAB_TYPE = "tab_type"
@@ -53,6 +54,7 @@ class ProfileTabFragment : androidx.fragment.app.Fragment() {
         recyclerView = view.findViewById(R.id.rvTabContent)
         emptyState = view.findViewById(R.id.emptyState)
         scrollView = view.findViewById(R.id.scrollView)
+        shimmerViewContainer = view.findViewById(R.id.shimmerViewContainer)
 
         // Set empty message based on tab type
         view.findViewById<TextView>(R.id.tvEmptyMessage).text = when (tabType) {
@@ -63,16 +65,58 @@ class ProfileTabFragment : androidx.fragment.app.Fragment() {
 
     fun setAdapter(adapter: RecyclerView.Adapter<*>) {
         recyclerView?.adapter = adapter
+        // Update scrollability after adapter is set and items are laid out
+        recyclerView?.post { updateScrollability() }
+    }
+
+    fun showLoading(isLoading: Boolean) {
+        if (isLoading) {
+            shimmerViewContainer?.visibility = View.VISIBLE
+            shimmerViewContainer?.startShimmer()
+            recyclerView?.visibility = View.GONE
+            emptyState?.visibility = View.GONE
+        } else {
+            shimmerViewContainer?.stopShimmer()
+            shimmerViewContainer?.visibility = View.GONE
+            recyclerView?.visibility = View.VISIBLE
+            
+            // Re-check empty state if needed, can be handled by caller calling updateEmptyState
+        }
     }
 
     fun updateEmptyState(isEmpty: Boolean) {
-        emptyState?.visibility = if (isEmpty) View.VISIBLE else View.GONE
-        
-        // Disable scroll when empty
-        scrollView?.isNestedScrollingEnabled = !isEmpty
-        
-        // Block touch events when empty
-        scrollView?.setOnTouchListener { _, _ -> isEmpty }
+        // Only show empty state if NOT loading
+        if (shimmerViewContainer?.visibility != View.VISIBLE) {
+            emptyState?.visibility = if (isEmpty) View.VISIBLE else View.GONE
+            // Update scroll after visibility change
+            scrollView?.post { updateScrollability() }
+        }
+    }
+    
+    /**
+     * Dynamically enable/disable scroll based on actual content height
+     * Only scrollable if content exceeds viewport height
+     */
+    private fun updateScrollability() {
+        scrollView?.post {
+            // Get the actual content height (RecyclerView or EmptyState)
+            val contentHeight = if (emptyState?.visibility == View.VISIBLE) {
+                // Empty state height is minimal, no scroll needed
+                emptyState?.height ?: 0
+            } else {
+                // Get RecyclerView's total content height
+                recyclerView?.height ?: 0
+            }
+            
+            val scrollViewHeight = scrollView?.height ?: 0
+            
+            // Enable scroll only if content is larger than viewport
+            val shouldScroll = contentHeight > scrollViewHeight
+            
+            // Block touch when scroll is not needed
+            scrollView?.setOnTouchListener { _, _ -> !shouldScroll }
+            scrollView?.isNestedScrollingEnabled = shouldScroll
+        }
     }
 
     fun getTabType(): TabType = tabType

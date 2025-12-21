@@ -7,5 +7,8 @@ import com.frzterr.app.data.repository.user.AppUser
  */
 data class CommentWithUser(
     val comment: Comment,
-    val user: AppUser
+    val user: AppUser,
+    val isLiked: Boolean = false,
+    val replyCount: Int = 0,
+    val isExpanded: Boolean = false
 )

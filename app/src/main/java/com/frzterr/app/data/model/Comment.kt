@@ -11,10 +11,16 @@ data class Comment(
     val postId: String,
 
     @SerialName("user_id")
-    val userId: String,
-
-    val content: String,
-
+    val userId: String = "",
+    
+    @SerialName("parent_comment_id")
+    val parentCommentId: String? = null,
+    
+    val content: String = "",
+    
     @SerialName("created_at")
-    val createdAt: String
+    val createdAt: String = "",
+    
+    @SerialName("like_count")
+    val likeCount: Long = 0
 )

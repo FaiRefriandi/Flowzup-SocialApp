@@ -112,13 +112,20 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         // ======================================================
         // 🔥 SETUP ViewPager2 WITH SWIPEABLE TABS - INSTANT LOAD
         // ======================================================
+        // ======================================================
+        // 🔥 SETUP ViewPager2 WITH SWIPEABLE TABS - INSTANT LOAD
+        // ======================================================
+        val currentUser = authRepo.getCurrentUser()
+        
         val postsAdapter = com.frzterr.app.ui.home.PostAdapter(
+            currentUserId = currentUser?.id,
             onLikeClick = { postWithUser ->
                 profileVM.toggleLike(postWithUser.post.id, postWithUser.isLiked)
             },
             onCommentClick = { postWithUser ->
                 val commentsBottomSheet = com.frzterr.app.ui.comments.CommentsBottomSheet(
                     postId = postWithUser.post.id,
+                    postOwnerId = postWithUser.post.userId,
                     onCommentAdded = {
                         profileVM.cachedUser?.id?.let { userId ->
                             profileVM.loadUserPosts(userId)
@@ -126,7 +133,7 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                     }
                 )
                 commentsBottomSheet.show(
-                    childFragmentManager,
+                    requireActivity().supportFragmentManager,
                     com.frzterr.app.ui.comments.CommentsBottomSheet.TAG
                 )
             },
@@ -135,16 +142,61 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             },
             onUserClick = { postWithUser ->
                 // Already on profile page
+            },
+            onOptionClick = { postWithUser ->
+                val isOwner = currentUser?.id == postWithUser.post.userId
+                
+                com.frzterr.app.ui.home.PostOptionsBottomSheet(
+                    isOwner = isOwner,
+                    onCopyClick = {
+                        val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("Post Content", postWithUser.post.content)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(requireContext(), "Teks disalin", Toast.LENGTH_SHORT).show()
+                    },
+                    onEditClick = {
+                        com.frzterr.app.ui.home.EditPostBottomSheet(
+                            post = postWithUser.post,
+                            onSaveClick = { newContent ->
+                                profileVM.editPost(postWithUser.post, newContent)
+                            }
+                        ).show(requireActivity().supportFragmentManager, com.frzterr.app.ui.home.EditPostBottomSheet.TAG)
+                    },
+                    onDeleteClick = {
+                        profileVM.deletePost(postWithUser.post)
+                    },
+                    onNotInterestedClick = {
+                        profileVM.hidePost(postWithUser.post.id)
+                        Toast.makeText(requireContext(), "Postingan disembunyikan", Toast.LENGTH_SHORT).show()
+                    }
+                ).show(requireActivity().supportFragmentManager, com.frzterr.app.ui.home.PostOptionsBottomSheet.TAG)
+            },
+            onImageClick = { images, position, view ->
+                 val fragment = com.frzterr.app.ui.viewer.ImageViewerDialogFragment.newInstance(images, position)
+                 
+                 fragment.sharedElementEnterTransition = androidx.transition.TransitionInflater.from(requireContext())
+                     .inflateTransition(android.R.transition.move)
+                 fragment.enterTransition = androidx.transition.Fade()
+                 fragment.exitTransition = androidx.transition.Fade()
+                 
+                 requireActivity().supportFragmentManager.beginTransaction()
+                     .setReorderingAllowed(true)
+                     .addSharedElement(view, androidx.core.view.ViewCompat.getTransitionName(view) ?: "")
+                     .add(android.R.id.content, fragment, com.frzterr.app.ui.viewer.ImageViewerDialogFragment.TAG)
+                     .addToBackStack(com.frzterr.app.ui.viewer.ImageViewerDialogFragment.TAG)
+                     .commit()
             }
         )
 
         val repostsAdapter = com.frzterr.app.ui.home.PostAdapter(
+            currentUserId = currentUser?.id,
             onLikeClick = { postWithUser ->
                 profileVM.toggleLike(postWithUser.post.id, postWithUser.isLiked)
             },
             onCommentClick = { postWithUser ->
                 val commentsBottomSheet = com.frzterr.app.ui.comments.CommentsBottomSheet(
                     postId = postWithUser.post.id,
+                    postOwnerId = postWithUser.post.userId,
                     onCommentAdded = {
                         profileVM.cachedUser?.id?.let { userId ->
                             profileVM.loadUserReposts(userId)
@@ -152,7 +204,7 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                     }
                 )
                 commentsBottomSheet.show(
-                    childFragmentManager,
+                    requireActivity().supportFragmentManager,
                     com.frzterr.app.ui.comments.CommentsBottomSheet.TAG
                 )
             },
@@ -161,6 +213,49 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             },
             onUserClick = { postWithUser ->
                 // Already on profile page
+            },
+            onOptionClick = { postWithUser ->
+                val isOwner = currentUser?.id == postWithUser.post.userId
+                
+                com.frzterr.app.ui.home.PostOptionsBottomSheet(
+                    isOwner = isOwner,
+                    onCopyClick = {
+                        val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("Post Content", postWithUser.post.content)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(requireContext(), "Teks disalin", Toast.LENGTH_SHORT).show()
+                    },
+                    onEditClick = {
+                        com.frzterr.app.ui.home.EditPostBottomSheet(
+                            post = postWithUser.post,
+                            onSaveClick = { newContent ->
+                                profileVM.editPost(postWithUser.post, newContent)
+                            }
+                        ).show(requireActivity().supportFragmentManager, com.frzterr.app.ui.home.EditPostBottomSheet.TAG)
+                    },
+                    onDeleteClick = {
+                        profileVM.deletePost(postWithUser.post)
+                    },
+                    onNotInterestedClick = {
+                        profileVM.hidePost(postWithUser.post.id)
+                        Toast.makeText(requireContext(), "Postingan disembunyikan", Toast.LENGTH_SHORT).show()
+                    }
+                ).show(requireActivity().supportFragmentManager, com.frzterr.app.ui.home.PostOptionsBottomSheet.TAG)
+            },
+            onImageClick = { images, position, view ->
+                 val fragment = com.frzterr.app.ui.viewer.ImageViewerDialogFragment.newInstance(images, position)
+                 
+                 fragment.sharedElementEnterTransition = androidx.transition.TransitionInflater.from(requireContext())
+                     .inflateTransition(android.R.transition.move)
+                 fragment.enterTransition = androidx.transition.Fade()
+                 fragment.exitTransition = androidx.transition.Fade()
+                 
+                 requireActivity().supportFragmentManager.beginTransaction()
+                     .setReorderingAllowed(true)
+                     .addSharedElement(view, androidx.core.view.ViewCompat.getTransitionName(view) ?: "")
+                     .add(android.R.id.content, fragment, com.frzterr.app.ui.viewer.ImageViewerDialogFragment.TAG)
+                     .addToBackStack(com.frzterr.app.ui.viewer.ImageViewerDialogFragment.TAG)
+                     .commit()
             }
         )
 
@@ -202,39 +297,59 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             }
         }
 
-        // Observe user posts - UPDATE IMMEDIATELY
+        // Observe user posts - HANDLE LOADING via NULL check
         profileVM.userPosts.observe(viewLifecycleOwner) { posts ->
-            postsAdapter.submitList(posts)
+            val postsFragment = childFragmentManager.findFragmentByTag("f0") as? ProfileTabFragment
             
-            // Update empty state for Posts tab
-            binding.viewPager.post {
-                val postsFragment = childFragmentManager.findFragmentByTag("f0") as? ProfileTabFragment
-                postsFragment?.updateEmptyState(posts?.isEmpty() ?: true)
+            if (posts == null) {
+                // LOADING STATE
+                binding.viewPager.post {
+                    (childFragmentManager.findFragmentByTag("f0") as? ProfileTabFragment)?.showLoading(true)
+                }
+            } else {
+                // DATA LOADED
+                postsAdapter.submitList(posts)
+                binding.viewPager.post {
+                    val fragment = childFragmentManager.findFragmentByTag("f0") as? ProfileTabFragment
+                    fragment?.showLoading(false)
+                    fragment?.updateEmptyState(posts.isEmpty())
+                }
             }
         }
 
-        // Observe user reposts - UPDATE IMMEDIATELY
+        // Observe user reposts - HANDLE LOADING via NULL check
         profileVM.userReposts.observe(viewLifecycleOwner) { reposts ->
-            repostsAdapter.submitList(reposts)
+            val repostsFragment = childFragmentManager.findFragmentByTag("f1") as? ProfileTabFragment
             
-            // Update empty state for Reposts tab
-            binding.viewPager.post {
-                val repostsFragment = childFragmentManager.findFragmentByTag("f1") as? ProfileTabFragment
-                repostsFragment?.updateEmptyState(reposts?.isEmpty() ?: true)
+            if (reposts == null) {
+                // LOADING STATE
+                binding.viewPager.post {
+                    (childFragmentManager.findFragmentByTag("f1") as? ProfileTabFragment)?.showLoading(true)
+                }
+            } else {
+                // DATA LOADED
+                repostsAdapter.submitList(reposts)
+                binding.viewPager.post {
+                    val fragment = childFragmentManager.findFragmentByTag("f1") as? ProfileTabFragment
+                    fragment?.showLoading(false)
+                    fragment?.updateEmptyState(reposts.isEmpty())
+                }
             }
         }
 
-        // 🚀 ALWAYS LOAD DATA - ViewModel init sudah start, ini just ensures fresh data
+        // 🚀 ALWAYS LOAD DATA
         lifecycleScope.launch {
             val currentUser = authRepo.getCurrentUser()
             currentUser?.let { user ->
-                // If ViewModel hasn't loaded yet or needs refresh
+                // Ensure cachedUser is set
                 if (profileVM.cachedUser == null) {
                     profileVM.cachedUser = userRepo.getUserByIdForce(user.id)
                 }
                 
-                // Trigger load (will be fast if already loaded by init block)
+                // Trigger load logic
                 profileVM.cachedUser?.id?.let { userId ->
+                    // ALWAYS refresh data when opening profile to ensure realtime updates
+                    // The Observer will handle UI updates smoothly
                     profileVM.loadUserPosts(userId)
                     profileVM.loadUserReposts(userId)
                 }
@@ -250,8 +365,21 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             repostsFragment?.setAdapter(repostsAdapter)
             
             // Trigger initial update
-            postsFragment?.updateEmptyState(profileVM.userPosts.value?.isEmpty() ?: true)
-            repostsFragment?.updateEmptyState(profileVM.userReposts.value?.isEmpty() ?: true)
+            val posts = profileVM.userPosts.value
+            val reposts = profileVM.userReposts.value
+            
+            if (posts.isNullOrEmpty()) {
+                 postsFragment?.showLoading(true)
+            } else {
+                 postsFragment?.updateEmptyState(posts.isEmpty())
+            }
+            
+            if (reposts.isNullOrEmpty()) {
+                 repostsFragment?.showLoading(true)
+            } else {
+                 repostsFragment?.updateEmptyState(reposts.isEmpty())
+            }
+            
         }, 100)
 
         binding.imgAvatar.setOnClickListener {
@@ -259,27 +387,22 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         }
 
         // Menu button (overflow) with logout option
-        binding.btnMenu.setOnClickListener { view ->
-            val popup = android.widget.PopupMenu(requireContext(), view)
-            popup.menuInflater.inflate(R.menu.menu_profile, popup.menu)
-            popup.setOnMenuItemClickListener { menuItem ->
-                when (menuItem.itemId) {
-                    R.id.action_logout -> {
-                        ProfileLocalStore.clear(requireContext())
-                        lifecycleScope.launch {
-                            authRepo.signOut()
+        binding.btnMenu.setOnClickListener {
+            ProfileOptionsBottomSheet(
+                onLogoutClick = {
+                    ProfileLocalStore.clear(requireContext())
+                    lifecycleScope.launch {
+                        authRepo.signOut()
+                        context?.let { ctx ->
                             startActivity(
-                                Intent(requireContext(), AuthActivity::class.java).apply {
+                                Intent(ctx, AuthActivity::class.java).apply {
                                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                                 }
                             )
                         }
-                        true
                     }
-                    else -> false
                 }
-            }
-            popup.show()
+            ).show(requireActivity().supportFragmentManager, ProfileOptionsBottomSheet.TAG)
         }
 
         // Edit Profile button (placeholder for now)
@@ -328,7 +451,9 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
 
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Gagal memuat profil", Toast.LENGTH_SHORT).show()
+                context?.let { ctx ->
+                    Toast.makeText(ctx, "Gagal memuat profil", Toast.LENGTH_SHORT).show()
+                }
             } finally {
             }
         }
@@ -518,7 +643,9 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                 bindProfile(profileVM.cachedUser!!)
 
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Gagal upload avatar", Toast.LENGTH_SHORT).show()
+                context?.let { ctx ->
+                    Toast.makeText(ctx, "Gagal upload avatar", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

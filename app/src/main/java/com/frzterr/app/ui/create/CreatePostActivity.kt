@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
@@ -36,19 +37,20 @@ class CreatePostActivity : AppCompatActivity() {
     private lateinit var tvUsername: TextView
     private lateinit var etContent: EditText
     private lateinit var btnAddImage: ImageView
-    private lateinit var imgPreview: ShapeableImageView
-    private lateinit var btnRemoveImage: ImageView
-    private lateinit var imagePreviewContainer: View
+    private lateinit var rvImagePreview: androidx.recyclerview.widget.RecyclerView
     private lateinit var loadingContainer: View
+    
+    // Adapter
+    private lateinit var imageAdapter: ImagePreviewAdapter
 
-    private var selectedImageUri: Uri? = null
+    private var selectedImageUris = mutableListOf<Uri>()
 
     private val pickImage = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let {
-            selectedImageUri = it
-            showImagePreview(it)
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            selectedImageUris.addAll(uris)
+            updateImagePreview()
         }
     }
 
@@ -71,9 +73,7 @@ class CreatePostActivity : AppCompatActivity() {
         tvUsername = findViewById(R.id.tvUsername)
         etContent = findViewById(R.id.etContent)
         btnAddImage = findViewById(R.id.btnAddImage)
-        imgPreview = findViewById(R.id.imgPreview)
-        btnRemoveImage = findViewById(R.id.btnRemoveImage)
-        imagePreviewContainer = findViewById(R.id.imagePreviewContainer)
+        rvImagePreview = findViewById(R.id.rvImagePreview)
         loadingContainer = findViewById(R.id.loadingContainer)
     }
 
@@ -81,18 +81,41 @@ class CreatePostActivity : AppCompatActivity() {
         // Load user info from local storage
         val (name, avatarPath, username) = ProfileLocalStore.load(this)
 
-        tvUsername.text = "@${username ?: "username"}"
+        tvUsername.text = username ?: "username"
 
-        // Load avatar
+        // Load avatar logic: Local File -> URL -> Placeholder
+        var isAvatarLoaded = false
         val localAvatarPath = ProfileLocalStore.loadLocalAvatarPath(this)
+        
         if (localAvatarPath != null) {
             val file = File(localAvatarPath)
             if (file.exists()) {
                 imgAvatar.setImageURI(Uri.fromFile(file))
-                imgAvatar.background =
-                    ContextCompat.getDrawable(this, R.drawable.bg_circle)
+                isAvatarLoaded = true
             }
         }
+
+        // If local file failed/missing, try loading from URL
+        if (!isAvatarLoaded && !avatarPath.isNullOrEmpty()) {
+            imgAvatar.load(avatarPath) {
+                crossfade(true)
+                placeholder(R.drawable.ic_user_placeholder)
+                error(R.drawable.ic_user_placeholder)
+            }
+        }
+        
+        // Ensure background is set for circular shape if needed
+        imgAvatar.background = ContextCompat.getDrawable(this, R.drawable.bg_circle)
+        
+        // Setup Recycler View
+        rvImagePreview.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(
+            this, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false
+        )
+        imageAdapter = ImagePreviewAdapter { uriToRemove ->
+            selectedImageUris.remove(uriToRemove)
+            updateImagePreview()
+        }
+        rvImagePreview.adapter = imageAdapter
 
         // Focus on content input
         etContent.requestFocus()
@@ -111,38 +134,35 @@ class CreatePostActivity : AppCompatActivity() {
             pickImage.launch("image/*")
         }
 
-        btnRemoveImage.setOnClickListener {
-            removeImage()
-        }
-
         // Enable/disable post button based on content
         etContent.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                btnPost.isEnabled = !s.isNullOrBlank()
+                // Also check if images exist? For now just text or maybe let images only post?
+                // Standard: Text is required or image is required? 
+                // Original code required text. Let's keep it requiring text OR images.
+                // But simplified: keep original logic (text required)
+                btnPost.isEnabled = !s.isNullOrBlank() || selectedImageUris.isNotEmpty()
             }
         })
     }
 
-    private fun showImagePreview(uri: Uri) {
-        imgPreview.load(uri) {
-            crossfade(true)
-        }
-        imagePreviewContainer.visibility = View.VISIBLE
-        btnAddImage.visibility = View.GONE
-    }
-
-    private fun removeImage() {
-        selectedImageUri = null
-        imagePreviewContainer.visibility = View.GONE
-        btnAddImage.visibility = View.VISIBLE
+    private fun updateImagePreview() {
+        imageAdapter.submitList(selectedImageUris)
+        rvImagePreview.visibility = if (selectedImageUris.isNotEmpty()) View.VISIBLE else View.GONE
+        
+        // Verify button state again just in case (e.g. text empty but image added)
+        val content = etContent.text.toString().trim()
+        btnPost.isEnabled = content.isNotBlank() || selectedImageUris.isNotEmpty()
     }
 
     private fun createPost() {
         val content = etContent.text.toString().trim()
-        if (content.isBlank()) {
-            Toast.makeText(this, "Please enter some content", Toast.LENGTH_SHORT).show()
+        
+        // If empty content AND no images, show error
+        if (content.isBlank() && selectedImageUris.isEmpty()) {
+            Toast.makeText(this, "Harap isi konten atau pilih gambar", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -153,38 +173,52 @@ class CreatePostActivity : AppCompatActivity() {
 
                 val currentUser = authRepo.getCurrentUser()
                 if (currentUser == null) {
-                    Toast.makeText(this@CreatePostActivity, "Not authenticated", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@CreatePostActivity, "Belum login", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
 
-                // Upload image if selected
-                var imageUrl: String? = null
-                if (selectedImageUri != null) {
-                    val imageBytes = compressImage(selectedImageUri!!)
-                    val uploadResult = postRepo.uploadPostImage(currentUser.id, imageBytes)
-                    
-                    if (uploadResult.isSuccess) {
-                        imageUrl = uploadResult.getOrNull()
-                    } else {
-                        Toast.makeText(
-                            this@CreatePostActivity,
-                            "Failed to upload image",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        return@launch
+                // Upload images
+                val uploadedImageUrls = mutableListOf<String>()
+                
+                if (selectedImageUris.isNotEmpty()) {
+                    for (uri in selectedImageUris) {
+                        try {
+                            val imageBytes = compressImage(uri)
+                            val uploadResult = postRepo.uploadPostImage(currentUser.id, imageBytes)
+                            
+                            if (uploadResult.isSuccess) {
+                                uploadResult.getOrNull()?.let { uploadedImageUrls.add(it) }
+                            } else {
+                                Toast.makeText(
+                                    this@CreatePostActivity,
+                                    "Gagal mengupload salah satu gambar",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                // Continue or abort? Let's abort to be safe
+                                return@launch
+                            }
+                        } catch (e: Exception) {
+                            Log.e("CreatePost", "Error uploading image", e)
+                             Toast.makeText(
+                                this@CreatePostActivity,
+                                "Error memproses gambar",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@launch
+                        }
                     }
                 }
 
                 // Create post
-                val result = postRepo.createPost(currentUser.id, content, imageUrl)
+                val result = postRepo.createPost(currentUser.id, content, uploadedImageUrls)
 
                 if (result.isSuccess) {
-                    Toast.makeText(this@CreatePostActivity, "Post created!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@CreatePostActivity, "Postingan berhasil dibuat!", Toast.LENGTH_SHORT).show()
                     finish()
                 } else {
                     Toast.makeText(
                         this@CreatePostActivity,
-                        "Failed to create post",
+                        "Gagal membuat postingan",
                         Toast.LENGTH_SHORT
                     ).show()
                 }

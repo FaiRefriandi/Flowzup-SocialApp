@@ -35,9 +35,9 @@ class ProfileViewModel : ViewModel() {
             try {
                 val currentUser = authRepo.getCurrentUser() ?: return@launch
                 val dbUser = userRepo.getUserByIdForce(currentUser.id) ?: return@launch
-                
+
                 cachedUser = dbUser
-                
+
                 // Pre-load posts and reposts in parallel
                 launch { loadUserPosts(dbUser.id) }
                 launch { loadUserReposts(dbUser.id) }
@@ -65,31 +65,58 @@ class ProfileViewModel : ViewModel() {
                 val currentUser = authRepo.getCurrentUser() ?: return@launch
                 val userId = cachedUser?.id ?: return@launch
 
-                // ⚡ Optimistic update
+                // ⚡ INSTANT Optimistic update for BOTH posts and reposts
                 val optimisticPosts = _userPosts.value?.map { postWithUser ->
                     if (postWithUser.post.id == postId) {
-                        postWithUser.copy(isLiked = !currentlyLiked)
+                        val updatedPost = postWithUser.post.copy(
+                            likeCount = if (currentlyLiked)
+                                (postWithUser.post.likeCount - 1).coerceAtLeast(0)
+                            else
+                                postWithUser.post.likeCount + 1
+                        )
+                        postWithUser.copy(
+                            post = updatedPost,
+                            isLiked = !currentlyLiked
+                        )
                     } else {
                         postWithUser
                     }
                 }
                 _userPosts.value = optimisticPosts ?: emptyList()
 
-                // Background operation
-                val result = postRepo.toggleLike(postId, currentUser.id, currentlyLiked)
-                
-                if (result.isFailure) {
-                    loadUserPosts(userId)
-                    return@launch
+                // Also update reposts tab
+                val optimisticReposts = _userReposts.value?.map { postWithUser ->
+                    if (postWithUser.post.id == postId) {
+                        val updatedPost = postWithUser.post.copy(
+                            likeCount = if (currentlyLiked)
+                                (postWithUser.post.likeCount - 1).coerceAtLeast(0)
+                            else
+                                postWithUser.post.likeCount + 1
+                        )
+                        postWithUser.copy(
+                            post = updatedPost,
+                            isLiked = !currentlyLiked
+                        )
+                    } else {
+                        postWithUser
+                    }
+                }
+                _userReposts.value = optimisticReposts ?: emptyList()
+
+                // Background sync - fire and forget
+                launch {
+                    val result = postRepo.toggleLike(postId, currentUser.id, currentlyLiked)
+                    if (result.isFailure) {
+                        loadUserPosts(userId)
+                        loadUserReposts(userId)
+                    }
                 }
 
-                // Quick refresh
-                kotlinx.coroutines.delay(200)
-                val posts = postRepo.getUserPosts(userId, currentUser.id)
-                _userPosts.value = posts
-
             } catch (e: Exception) {
-                cachedUser?.id?.let { loadUserPosts(it) }
+                cachedUser?.id?.let {
+                    loadUserPosts(it)
+                    loadUserReposts(it)
+                }
             }
         }
     }
@@ -115,36 +142,134 @@ class ProfileViewModel : ViewModel() {
                 val currentUser = authRepo.getCurrentUser() ?: return@launch
                 val userId = cachedUser?.id ?: return@launch
 
-                // ⚡ Optimistic update for posts
+                // ⚡ INSTANT Optimistic update for BOTH posts and reposts
                 val optimisticPosts = _userPosts.value?.map { postWithUser ->
                     if (postWithUser.post.id == postId) {
-                        postWithUser.copy(isReposted = !currentlyReposted)
+                        val updatedPost = postWithUser.post.copy(
+                            repostCount = if (currentlyReposted)
+                                (postWithUser.post.repostCount - 1).coerceAtLeast(0)
+                            else
+                                postWithUser.post.repostCount + 1
+                        )
+                        postWithUser.copy(
+                            post = updatedPost,
+                            isReposted = !currentlyReposted
+                        )
                     } else {
                         postWithUser
                     }
                 }
                 _userPosts.value = optimisticPosts ?: emptyList()
 
-                // Background operation
-                val result = postRepo.toggleRepost(postId, currentUser.id, currentlyReposted)
-                
-                if (result.isFailure) {
-                    loadUserPosts(userId)
-                    return@launch
+                // Also update reposts tab
+                val optimisticReposts = _userReposts.value?.map { postWithUser ->
+                    if (postWithUser.post.id == postId) {
+                        val updatedPost = postWithUser.post.copy(
+                            repostCount = if (currentlyReposted)
+                                (postWithUser.post.repostCount - 1).coerceAtLeast(0)
+                            else
+                                postWithUser.post.repostCount + 1
+                        )
+                        postWithUser.copy(
+                            post = updatedPost,
+                            isReposted = !currentlyReposted
+                        )
+                    } else {
+                        postWithUser
+                    }
+                }
+                _userReposts.value = optimisticReposts ?: emptyList()
+
+                // Background sync - fire and forget
+                launch {
+                    val result = postRepo.toggleRepost(postId, currentUser.id, currentlyReposted)
+                    if (result.isFailure) {
+                        loadUserPosts(userId)
+                        loadUserReposts(userId)
+                    }
                 }
 
-                // Quick refresh
-                kotlinx.coroutines.delay(200)
-                val posts = postRepo.getUserPosts(userId, currentUser.id)
-                _userPosts.value = posts
-
-                // Also refresh reposts if visible
-                val reposts = postRepo.getUserReposts(userId, currentUser.id)
-                _userReposts.value = reposts
-
             } catch (e: Exception) {
-                cachedUser?.id?.let { loadUserPosts(it) }
+                cachedUser?.id?.let {
+                    loadUserPosts(it)
+                    loadUserReposts(it)
+                }
             }
         }
+    }
+
+    fun deletePost(post: com.frzterr.app.data.model.Post) {
+        val oldPosts = _userPosts.value
+        val oldReposts = _userReposts.value
+
+        // ⚡ INSTANT Optimistic update
+        _userPosts.value = oldPosts?.filter { it.post.id != post.id }
+        _userReposts.value = oldReposts?.filter { it.post.id != post.id }
+
+        viewModelScope.launch {
+            try {
+                val currentUser = authRepo.getCurrentUser() ?: return@launch
+                val result = postRepo.deletePost(post.id, currentUser.id)
+
+                if (result.isFailure) {
+                    _userPosts.value = oldPosts // Revert
+                    _userReposts.value = oldReposts // Revert
+                }
+            } catch (e: Exception) {
+                _userPosts.value = oldPosts // Revert
+                _userReposts.value = oldReposts // Revert
+            }
+        }
+    }
+
+    fun editPost(post: com.frzterr.app.data.model.Post, newContent: String) {
+        val oldPosts = _userPosts.value
+        val oldReposts = _userReposts.value
+
+        // ⚡ INSTANT Optimistic update for Posts tab
+        val updatedPosts = oldPosts?.map { postWithUser ->
+            if (postWithUser.post.id == post.id) {
+                postWithUser.copy(
+                    post = postWithUser.post.copy(content = newContent)
+                )
+            } else {
+                postWithUser
+            }
+        }
+        _userPosts.value = updatedPosts ?: emptyList()
+
+        // ⚡ INSTANT Optimistic update for Reposts tab
+        val updatedReposts = oldReposts?.map { postWithUser ->
+            if (postWithUser.post.id == post.id) {
+                postWithUser.copy(
+                    post = postWithUser.post.copy(content = newContent)
+                )
+            } else {
+                postWithUser
+            }
+        }
+        _userReposts.value = updatedReposts ?: emptyList()
+
+        viewModelScope.launch {
+            try {
+                val currentUser = authRepo.getCurrentUser() ?: return@launch
+                val result = postRepo.updatePost(post.id, currentUser.id, newContent)
+
+                if (result.isFailure) {
+                    _userPosts.value = oldPosts // Revert
+                    _userReposts.value = oldReposts // Revert
+                }
+            } catch (e: Exception) {
+                _userPosts.value = oldPosts // Revert
+                _userReposts.value = oldReposts // Revert
+            }
+        }
+    }
+    fun hidePost(postId: String) {
+        val oldPosts = _userPosts.value
+        val oldReposts = _userReposts.value
+        
+        _userPosts.value = oldPosts?.filter { it.post.id != postId }
+        _userReposts.value = oldReposts?.filter { it.post.id != postId }
     }
 }

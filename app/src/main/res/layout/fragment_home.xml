@@ -53,13 +53,17 @@
                     android:textSize="14sp"/>
             </LinearLayout>
 
-            <!-- LOADING INDICATOR -->
-            <ProgressBar
-                android:id="@+id/progressBar"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:visibility="gone"/>
+            <!-- SHIMMER LOADING -->
+            <com.facebook.shimmer.ShimmerFrameLayout
+                android:id="@+id/shimmerViewContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"
+                app:shimmer_duration="800">
+
+                <include layout="@layout/shimmer_home_placeholder" />
+
+            </com.facebook.shimmer.ShimmerFrameLayout>
 
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
@@ -74,7 +78,8 @@
         android:layout_marginBottom="100dp"
         android:src="@android:drawable/ic_input_add"
         android:contentDescription="Create new post"
+        android:alpha="0.8"
         app:tint="@android:color/white"
-        app:backgroundTint="#0A7AFF"/>
+        app:backgroundTint="#212121"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
