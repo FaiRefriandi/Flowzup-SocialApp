@@ -67,4 +67,4 @@ The project is currently under active development and serves as a portfolio proj
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/USERNAME/flowzup.git
+   git clone https://github.com/FaiRefriandi/Flowzup-SocialApp.git
